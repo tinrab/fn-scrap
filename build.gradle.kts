@@ -5,6 +5,7 @@ plugins {
     kotlin("jvm") version "1.3.50"
     `maven-publish`
     publishing
+    id("com.diffplug.gradle.spotless") version "3.26.0"
 }
 
 repositories {
@@ -17,6 +18,7 @@ subprojects {
     apply(plugin = "java")
     apply(plugin = "kotlin")
     apply(plugin = "maven-publish")
+    apply(plugin = "com.diffplug.gradle.spotless")
 
     repositories {
         mavenCentral()
@@ -45,8 +47,8 @@ subprojects {
                 name = "GitHubPackages"
                 url = uri(property("maven-repository").toString())
                 credentials {
-                    username = project.findProperty("github-user") as String? ?: System.getenv("GITHUB_USER")
-                    password = project.findProperty("github-token") as String? ?: System.getenv("GITHUB_TOKEN")
+                    username = project.findProperty("github.user") as String? ?: System.getenv("GITHUB_USER")
+                    password = project.findProperty("github.token") as String? ?: System.getenv("GITHUB_TOKEN")
                 }
             }
         }
@@ -59,5 +61,26 @@ subprojects {
                 from(components["java"])
             }
         }
+    }
+}
+
+spotless {
+    isEnforceCheck = false
+
+    format("misc") {
+        target("**/*.gradle", "**/*.md", "**/.gitignore")
+
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+    kotlin {
+        target("**/*.kt")
+        ktlint().userData(mapOf(
+            "disabled_rules" to "import-ordering"
+        ))
+    }
+    kotlinGradle {
+        target("**/*.gradle.kts")
+        ktlint()
     }
 }

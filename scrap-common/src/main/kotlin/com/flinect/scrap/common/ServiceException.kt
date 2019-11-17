@@ -15,4 +15,12 @@ open class ServiceException(
         INTERNAL,
         BAD_REQUEST
     }
+
+    companion object {
+        fun declareCode(vararg path: String): String {
+            return path
+                .map { it.toLowerCase() }
+                .joinToString { "." }
+        }
+    }
 }
