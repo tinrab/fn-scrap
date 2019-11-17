@@ -6,7 +6,7 @@ package com.flinect.scrap.common
 open class ServiceException(
     val code: String,
     val kind: Kind = Kind.BAD_REQUEST,
-    message: String? = null,
+    override val message: String? = null,
     cause: Throwable? = null
 ) : RuntimeException(message, cause) {
     constructor(code: String, cause: Throwable?) : this(code, message = null, cause = cause)
