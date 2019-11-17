@@ -15,10 +15,10 @@ jobs:
       - name: Build
         run: ./gradlew -Pversion="$(basename $GITHUB_REF)" build
         env:
-          GITHUB_USER: GITHUB_ACTOR
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USER: PUBLISH_USER
+          GITHUB_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
       - name: Publish
         run: ./gradlew -Pversion="$(basename $GITHUB_REF)" publish
         env:
-          GITHUB_USER: GITHUB_ACTOR
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USER: PUBLISH_USER
+          GITHUB_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
