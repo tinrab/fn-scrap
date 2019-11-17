@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: "v*"
+    tags: "*"
 
 jobs:
   release:
@@ -13,12 +13,12 @@ jobs:
         with:
           java-version: 11.x
       - name: Build
-        run: ./gradlew -Pversion="$(basename $GITHUB_REF | tr -d v)" build
+        run: ./gradlew -Pversion="$(basename $GITHUB_REF)" build
         env:
           GITHUB_USER: GITHUB_ACTOR
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish
-        run: ./gradlew -Pversion="$(basename $GITHUB_REF | tr -d v)" publish
+        run: ./gradlew -Pversion="$(basename $GITHUB_REF)" publish
         env:
           GITHUB_USER: GITHUB_ACTOR
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
