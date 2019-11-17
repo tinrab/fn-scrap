@@ -6,13 +6,19 @@ import kotlin.test.assertEquals
 class ServiceExceptionTest {
     @Test
     fun basic() {
-        class TestServiceException(code: String, message: String) : ServiceException(
+        class TestServiceException(code: String, message: String?) : ServiceException(
             code,
             message = message,
             kind = Kind.BAD_REQUEST
         )
 
         val e = TestServiceException("code", message = "msg")
-        assertEquals("{\"code\":\"code\",\"message\":\"msg\"}", JsonUtil.encodeToString(e))
+        val json = JsonUtil.encode(e)
+        assertEquals("{\"code\":\"code\",\"kind\":\"BAD_REQUEST\",\"message\":\"msg\"}", json)
+
+        val decoded = JsonUtil.decode(json) as ServiceException
+        assertEquals(e.code, decoded.code)
+        assertEquals(e.kind, decoded.kind)
+        assertEquals(e.message, decoded.message)
     }
 }

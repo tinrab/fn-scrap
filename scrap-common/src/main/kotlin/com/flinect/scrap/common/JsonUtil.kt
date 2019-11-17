@@ -7,7 +7,7 @@ object JsonUtil {
         .create()
     private val serviceExceptionJson = ServiceExceptionJson()
 
-    fun encodeToString(value: Any): String {
+    fun encode(value: Any): String {
         return when (value) {
             is ServiceException -> gson.toJson(serviceExceptionJson.serialize(value, null, null))
             else -> gson.toJson(value)
