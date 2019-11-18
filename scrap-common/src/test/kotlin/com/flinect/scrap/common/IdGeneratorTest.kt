@@ -1,9 +1,11 @@
 package com.flinect.scrap.common
 
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.Test
 import java.time.Instant
-import kotlin.test.assertEquals
 
+@Tag("unit")
 class IdGeneratorTest {
     @Test
     fun generate() {

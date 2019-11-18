@@ -2,6 +2,7 @@ package com.flinect.scrap.message
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import java.io.Reader
 import kotlin.reflect.KClass
 
 /**
@@ -18,20 +19,29 @@ import kotlin.reflect.KClass
  * }
  * ```
  */
-class MessageSerializer<T : Message> private constructor(
-    private val messageClass: KClass<*>,
-    private val messageTypeAdapterFactory: MessageTypeAdapterFactory<T>,
+class MessageSerializer private constructor(
+    private val messageTypeAdapterFactory: MessageTypeAdapterFactory,
     var gson: Gson
 ) {
-    fun <S : T> encode(value: S): String {
+    init {
+        registerMessageType(EmptyMessage::class)
+    }
+
+    fun <T : Message> encode(value: T): String {
         require(messageTypeAdapterFactory.isRegistered(value)) {
             "Message type '${value::class}' was not registered."
         }
-        return gson.toJson(value, messageClass.java)
+        return gson.toJson(value, Message::class.java)
     }
 
-    fun decode(json: String): T {
-        return gson.fromJson<T>(json, messageClass.java)
+    fun <T : Message> decode(json: String): T {
+        val message = gson.fromJson<T>(json, Message::class.java)
+        message.messageTypeName = Message.typeOf(message::class)
+        return message
+    }
+
+    fun decode(reader: Reader): Message {
+        return gson.fromJson<Message>(reader, Message::class.java)
     }
 
     fun <T : Any> registerMessageType(clazz: KClass<T>) {
@@ -39,12 +49,9 @@ class MessageSerializer<T : Message> private constructor(
     }
 
     companion object {
-        private const val TYPE_FIELD_NAME = "type"
-
-        fun <T : Message> of(clazz: KClass<T>): MessageSerializer<T> {
-            val messageTypeAdapterFactory = MessageTypeAdapterFactory<T>(clazz, TYPE_FIELD_NAME)
+        fun <T : Message> of(clazz: KClass<T>): MessageSerializer {
+            val messageTypeAdapterFactory = MessageTypeAdapterFactory()
             val messageSerializer = MessageSerializer(
-                clazz,
                 messageTypeAdapterFactory,
                 GsonBuilder()
                     .registerTypeAdapterFactory(messageTypeAdapterFactory)

@@ -5,11 +5,11 @@ import com.google.gson.GsonBuilder
 object JsonUtil {
     val gson = GsonBuilder()
         .create()
-    private val serviceExceptionJson = ServiceExceptionJson()
+    private val errorJson = FailureJson()
 
     fun encode(value: Any): String {
         return when (value) {
-            is ServiceException -> gson.toJson(serviceExceptionJson.serialize(value, null, null))
+            is Failure -> gson.toJson(errorJson.serialize(value, null, null))
             else -> gson.toJson(value)
         }
     }

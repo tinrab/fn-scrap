@@ -1,4 +1,4 @@
-package com.flinect.scrap.message
+package com.flinect.scrap.message.broker
 
 import com.rabbitmq.client.BuiltinExchangeType
 
