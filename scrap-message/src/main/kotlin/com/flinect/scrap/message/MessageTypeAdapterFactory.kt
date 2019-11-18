@@ -11,10 +11,11 @@ import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonWriter
 import java.io.IOException
 import java.util.LinkedHashMap
+import kotlin.collections.set
 import kotlin.reflect.KClass
 import kotlin.reflect.full.declaredMemberProperties
 
-internal class MessageTypeAdapterFactory<T : Any> constructor(
+internal class MessageTypeAdapterFactory<T : Message> constructor(
     private val baseType: KClass<*>,
     private val typeFieldName: String
 ) : TypeAdapterFactory {
@@ -92,20 +93,15 @@ internal class MessageTypeAdapterFactory<T : Any> constructor(
                 val fieldDescriptions = getFieldDescriptions(messageType)
                 val flatObject = JsonObject()
 
-                for (group in GROUPS) {
-                    require(jsonObject.get(group).isJsonObject) {
-                        "Nested '$group' field must be an object."
-                    }
-
-                    val groupObject = jsonObject.get(group).asJsonObject
-
-                    for (field in groupObject.entrySet()) {
-                        val fieldName = fieldDescriptions.find {
-                            it.group == group && it.targetFieldName == field.key
-                        }?.sourceFieldName
-                        if (fieldName != null) {
-                            flatObject.add(fieldName, field.value)
-                        }
+                require(jsonObject.get(PAYLOAD_GROUP).isJsonObject) {
+                    "'$PAYLOAD_GROUP' is not an object."
+                }
+                for (field in jsonObject.get(PAYLOAD_GROUP).asJsonObject.entrySet()) {
+                    val fieldName = fieldDescriptions.find {
+                        it.targetFieldName == field.key
+                    }?.sourceFieldName
+                    if (fieldName != null) {
+                        flatObject.add(fieldName, field.value)
                     }
                 }
 
@@ -125,32 +121,23 @@ internal class MessageTypeAdapterFactory<T : Any> constructor(
                 require(!jsonObject.has(typeFieldName)) {
                     "Cannot serialize '$baseType' because it already defines a field name '$typeFieldName'."
                 }
-                GROUPS.forEach {
-                    require(!jsonObject.has(it)) {
-                        "Cannot serialize '$baseType' because it already defines a field name '$it'."
-                    }
+                require(!jsonObject.has(PAYLOAD_GROUP)) {
+                    "Cannot serialize '$baseType' because it already defines a field name '$PAYLOAD_GROUP'."
                 }
 
                 // Construct a result
                 val result = JsonObject()
                 result.add(typeFieldName, JsonPrimitive(typeToLabel[valueClass]))
 
-                val groups = HashMap<String, JsonObject>()
+                val payload = JsonObject()
                 val fieldDescriptions = getFieldDescriptions(valueClass)
                 for (fd in fieldDescriptions) {
                     if (!jsonObject.has(fd.sourceFieldName)) {
                         continue
                     }
-                    if (!groups.containsKey(fd.group)) {
-                        groups[fd.group] = JsonObject()
-                    }
-                    groups[fd.group]?.add(fd.targetFieldName, jsonObject.get(fd.sourceFieldName))
+                    payload.add(fd.targetFieldName, jsonObject.get(fd.sourceFieldName))
                 }
-                for (group in groups) {
-                    if (group.value.size() != 0) {
-                        result.add(group.key, group.value)
-                    }
-                }
+                result.add(PAYLOAD_GROUP, payload)
 
                 Streams.write(result, out)
             }
@@ -167,8 +154,7 @@ internal class MessageTypeAdapterFactory<T : Any> constructor(
 
     private data class FieldDescription(
         val sourceFieldName: String,
-        val targetFieldName: String,
-        val group: String
+        val targetFieldName: String
     )
 
     private fun <R : Any> getFieldDescriptions(clazz: KClass<R>): List<FieldDescription> {
@@ -184,13 +170,8 @@ internal class MessageTypeAdapterFactory<T : Any> constructor(
                 .filterIsInstance<MessageFieldName>()
                 .map { it.value }
                 .lastOrNull() ?: property.name
-            // Define a group for this field
-            val group = property.annotations
-                .filterIsInstance<MessageMeta>()
-                .map { META_GROUP }
-                .firstOrNull() ?: PAYLOAD_GROUP
 
-            fieldDescriptions.add(FieldDescription(property.name, fieldName, group))
+            fieldDescriptions.add(FieldDescription(property.name, fieldName))
         }
 
         return fieldDescriptions
@@ -198,7 +179,5 @@ internal class MessageTypeAdapterFactory<T : Any> constructor(
 
     companion object {
         private const val PAYLOAD_GROUP = "payload"
-        private const val META_GROUP = "meta"
-        private val GROUPS = arrayOf(PAYLOAD_GROUP, META_GROUP)
     }
 }

@@ -18,19 +18,19 @@ import kotlin.reflect.KClass
  * }
  * ```
  */
-class MessageJson<T : Any> private constructor(
+class MessageSerializer<T : Message> private constructor(
     private val messageClass: KClass<*>,
     private val messageTypeAdapterFactory: MessageTypeAdapterFactory<T>,
     var gson: Gson
 ) {
-    fun <S : T> toJson(value: S): String {
+    fun <S : T> encode(value: S): String {
         require(messageTypeAdapterFactory.isRegistered(value)) {
             "Message type '${value::class}' was not registered."
         }
         return gson.toJson(value, messageClass.java)
     }
 
-    fun fromJson(json: String): T {
+    fun decode(json: String): T {
         return gson.fromJson<T>(json, messageClass.java)
     }
 
@@ -41,9 +41,9 @@ class MessageJson<T : Any> private constructor(
     companion object {
         private const val TYPE_FIELD_NAME = "type"
 
-        fun <T : Any> of(clazz: KClass<T>): MessageJson<T> {
+        fun <T : Message> of(clazz: KClass<T>): MessageSerializer<T> {
             val messageTypeAdapterFactory = MessageTypeAdapterFactory<T>(clazz, TYPE_FIELD_NAME)
-            val messageJson = MessageJson(
+            val messageSerializer = MessageSerializer(
                 clazz,
                 messageTypeAdapterFactory,
                 GsonBuilder()
@@ -52,9 +52,9 @@ class MessageJson<T : Any> private constructor(
             )
             for (k in clazz.annotations.filterIsInstance<MessageTypes>()
                 .flatMap { messageTypes -> messageTypes.types.asList() }) {
-                messageJson.registerMessageType(k)
+                messageSerializer.registerMessageType(k)
             }
-            return messageJson
+            return messageSerializer
         }
     }
 }

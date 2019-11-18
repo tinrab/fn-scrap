@@ -3,16 +3,14 @@ package com.flinect.scrap.message
 import org.junit.Test
 import kotlin.test.assertEquals
 
-class MessageJsonTest {
+class MessageSerializerTest {
     @MessageTypes(
         AddTodoAction::class
     )
-    private interface Action
+    private interface Action : Message
 
     @MessageTypeName("ADD_TODO")
     private data class AddTodoAction(
-        @MessageMeta
-        val requestId: String,
         val text: String,
         @MessageFieldSkip
         val skipped: Boolean,
@@ -20,32 +18,34 @@ class MessageJsonTest {
         val y: Int
     ) : Action
 
-    private val actionJson = MessageJson.of(Action::class)
+    private val actionJson = MessageSerializer.of(Action::class)
 
     @Test
     fun simple() {
-        val todoAction = AddTodoAction("1", "go to sleep", true, 42)
+        val todoAction = AddTodoAction("go to sleep", true, 42)
 
-        val json = actionJson.toJson(todoAction)
-        assertEquals("{\"type\":\"ADD_TODO\",\"payload\":{\"text\":\"go to sleep\",\"x\":42},\"meta\":{\"requestId\":\"1\"}}", json)
+        val json = actionJson.encode(todoAction)
+        assertEquals(
+            "{\"type\":\"ADD_TODO\",\"payload\":{\"text\":\"go to sleep\",\"x\":42}}",
+            json
+        )
 
-        val parsed = actionJson.fromJson(json) as AddTodoAction
-        assertEquals(todoAction.requestId, parsed.requestId)
+        val parsed = actionJson.decode(json) as AddTodoAction
         assertEquals(todoAction.text, parsed.text)
         assertEquals(todoAction.y, parsed.y)
     }
 
     @Test
     fun extraField() {
-        val parsed = actionJson.fromJson("{\"type\":\"ADD_TODO\",\"payload\":{\"text\":\"go to sleep\",\"x\":42,\"y\":13},\"meta\":{\"requestId\":\"1\",\"clientId\":\"1\"}}") as AddTodoAction
-        assertEquals("1", parsed.requestId)
+        val parsed =
+            actionJson.decode("{\"type\":\"ADD_TODO\",\"payload\":{\"text\":\"go to sleep\",\"x\":42,\"y\":13}}") as AddTodoAction
         assertEquals("go to sleep", parsed.text)
         assertEquals(42, parsed.y)
     }
 
     @Test(expected = IllegalArgumentException::class)
     fun nonObject() {
-        actionJson.fromJson("42")
+        actionJson.decode("42")
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -53,7 +53,7 @@ class MessageJsonTest {
         data class A(
             val x: Int
         ) : Action
-        actionJson.toJson(A(42))
+        actionJson.encode(A(42))
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -62,16 +62,16 @@ class MessageJsonTest {
             val x: Int
         ) : Action
         actionJson.registerMessageType(A::class)
-        println(actionJson.toJson(A(42)))
+        println(actionJson.encode(A(42)))
     }
 
     @Test(expected = IllegalArgumentException::class)
     fun unknownType() {
-        actionJson.fromJson("{\"type\":\"A\"}")
+        actionJson.decode("{\"type\":\"A\"}")
     }
 
     @Test(expected = IllegalArgumentException::class)
     fun missingPayload() {
-        actionJson.fromJson("{\"type\":\"ADD_TODO\"}")
+        actionJson.decode("{\"type\":\"ADD_TODO\"}")
     }
 }
