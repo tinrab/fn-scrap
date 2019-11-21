@@ -26,6 +26,8 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 11.x
+      - name: Lint
+        run: ./gradlew spotlessCheck
       - name: Test
         run: ./gradlew test
       - name: Integration Test
@@ -33,5 +35,3 @@ jobs:
         env:
           RABBITMQ_HOST: localhost
           RABBITMQ_PORT: ${{ job.services.rabbitmq.ports[5672] }}
-      - name: Lint
-        run: ./gradlew spotlessCheck
