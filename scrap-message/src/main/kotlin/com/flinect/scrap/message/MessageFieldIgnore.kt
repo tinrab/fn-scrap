@@ -1,8 +1,8 @@
 package com.flinect.scrap.message
 
 /**
- * Do not serialize this field.
+ * Can be used to ignore a field during serialization and deserialization.
  */
 @Retention(AnnotationRetention.RUNTIME)
 @Target(AnnotationTarget.PROPERTY, AnnotationTarget.FIELD)
-annotation class MessageFieldSkip
+annotation class MessageFieldIgnore

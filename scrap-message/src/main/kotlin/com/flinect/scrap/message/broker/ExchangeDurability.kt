@@ -1,4 +1,4 @@
-package com.flinect.scrap.message
+package com.flinect.scrap.message.broker
 
 enum class ExchangeDurability {
     WEAK,

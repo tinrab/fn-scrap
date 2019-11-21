@@ -1,22 +1,39 @@
-package com.flinect.scrap.message
+package com.flinect.scrap.message.broker
 
+import com.flinect.scrap.message.MessageSerializer
 import com.rabbitmq.client.Connection
 import com.rabbitmq.client.ConnectionFactory
-import kotlin.reflect.KClass
 
-class BrokerBuilder<T : Message> private constructor(
-    private val messageClass: KClass<T>,
+class BrokerBuilder private constructor(
+    private val messageSerializer: MessageSerializer,
     private val connection: Connection
 ) {
     private val exchanges = HashMap<String, BrokerExchange>()
+    private val queues = HashMap<String, BrokerQueue>()
+
+    fun addQueue(name: String, prefetchCount: Int? = null): BrokerBuilder {
+        require(!queues.containsKey(name)) { "Queue name must be unique." }
+
+        val channel = connection.createChannel()
+        channel.queueDeclare(name, true, true, true, null)
+        if (prefetchCount != null) {
+            channel.basicQos(prefetchCount, true)
+        }
+
+        queues[name] = BrokerQueue(
+            name,
+            channel
+        )
+        return this
+    }
 
     fun addExchange(
         name: String,
         type: ExchangeType,
         durability: ExchangeDurability,
         prefetchCount: Int? = null
-    ): BrokerBuilder<T> {
-        require(!exchanges.containsKey(name)) { "Exchange name must be unique" }
+    ): BrokerBuilder {
+        require(!exchanges.containsKey(name)) { "Exchange name must be unique." }
         val channel = connection.createChannel()
 
         if (prefetchCount != null) {
@@ -39,16 +56,17 @@ class BrokerBuilder<T : Message> private constructor(
         return this
     }
 
-    fun build(): Broker<T> {
+    fun build(): Broker {
         return BrokerImpl(
+            queues,
             exchanges,
-            MessageSerializer.of(messageClass),
+            messageSerializer,
             connection
         )
     }
 
     companion object {
-        fun <T : Message> of(config: BrokerConfig, messageClass: KClass<T>): BrokerBuilder<T> {
+        fun of(config: BrokerConfig, messageSerializer: MessageSerializer): BrokerBuilder {
             val connectionFactory = ConnectionFactory()
             connectionFactory.host = config.host
             connectionFactory.port = config.port
@@ -58,7 +76,7 @@ class BrokerBuilder<T : Message> private constructor(
 
             val connection = connectionFactory.newConnection()
 
-            return BrokerBuilder(messageClass, connection)
+            return BrokerBuilder(messageSerializer, connection)
         }
     }
 }

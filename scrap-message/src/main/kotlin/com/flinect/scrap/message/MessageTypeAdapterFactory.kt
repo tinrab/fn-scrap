@@ -15,14 +15,11 @@ import kotlin.collections.set
 import kotlin.reflect.KClass
 import kotlin.reflect.full.declaredMemberProperties
 
-internal class MessageTypeAdapterFactory<T : Message> constructor(
-    private val baseType: KClass<*>,
-    private val typeFieldName: String
-) : TypeAdapterFactory {
+internal class MessageTypeAdapterFactory : TypeAdapterFactory {
     private val labelToType = LinkedHashMap<String, KClass<*>>()
     private val typeToLabel = LinkedHashMap<KClass<*>, String>()
 
-    fun registerMessageType(clazz: KClass<*>): MessageTypeAdapterFactory<T> {
+    fun registerMessageType(clazz: KClass<*>): MessageTypeAdapterFactory {
         val typeName = clazz.annotations.filterIsInstance<MessageTypeName>()
             .lastOrNull()
         requireNotNull(typeName) {
@@ -53,12 +50,12 @@ internal class MessageTypeAdapterFactory<T : Message> constructor(
         return this
     }
 
-    fun <S : T> isRegistered(value: S): Boolean {
+    fun <T : Message> isRegistered(value: T): Boolean {
         return typeToLabel.containsKey(value::class)
     }
 
     override fun <R : Any> create(gson: Gson, type: TypeToken<R>): TypeAdapter<R>? {
-        if (type.rawType != baseType.java) {
+        if (type.rawType != Message::class.java) {
             return null
         }
 
@@ -118,16 +115,16 @@ internal class MessageTypeAdapterFactory<T : Message> constructor(
                 val jsonObject = delegate.toJsonTree(value).asJsonObject
 
                 // Validate json object
-                require(!jsonObject.has(typeFieldName)) {
-                    "Cannot serialize '$baseType' because it already defines a field name '$typeFieldName'."
+                require(!jsonObject.has(TYPE_FIELD_NAME)) {
+                    "Cannot serialize message because it already defines a field name '$TYPE_FIELD_NAME'."
                 }
                 require(!jsonObject.has(PAYLOAD_GROUP)) {
-                    "Cannot serialize '$baseType' because it already defines a field name '$PAYLOAD_GROUP'."
+                    "Cannot serialize message because it already defines a field name '$PAYLOAD_GROUP'."
                 }
 
                 // Construct a result
                 val result = JsonObject()
-                result.add(typeFieldName, JsonPrimitive(typeToLabel[valueClass]))
+                result.add(TYPE_FIELD_NAME, JsonPrimitive(typeToLabel[valueClass]))
 
                 val payload = JsonObject()
                 val fieldDescriptions = getFieldDescriptions(valueClass)
@@ -145,9 +142,9 @@ internal class MessageTypeAdapterFactory<T : Message> constructor(
     }
 
     private fun getLabel(jsonObject: JsonObject): String {
-        val labelJsonElement = jsonObject.get(typeFieldName)
+        val labelJsonElement = jsonObject.get(TYPE_FIELD_NAME)
         requireNotNull(labelJsonElement) {
-            "Cannot deserialize '$baseType' because it does not define a field name '$typeFieldName'."
+            "Cannot deserialize message because it does not define a field name '$TYPE_FIELD_NAME'."
         }
         return labelJsonElement.asString
     }
@@ -162,7 +159,7 @@ internal class MessageTypeAdapterFactory<T : Message> constructor(
 
         for (property in clazz.declaredMemberProperties) {
             // Remove skipped fields
-            if (property.annotations.find { it is MessageFieldSkip } != null) {
+            if (property.annotations.find { it is MessageFieldIgnore } != null) {
                 continue
             }
             // Extract field name
@@ -178,6 +175,7 @@ internal class MessageTypeAdapterFactory<T : Message> constructor(
     }
 
     companion object {
+        private const val TYPE_FIELD_NAME = "type"
         private const val PAYLOAD_GROUP = "payload"
     }
 }

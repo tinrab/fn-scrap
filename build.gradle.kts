@@ -1,6 +1,8 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+val kotlinVersion: String = property("kotlin-version").toString()
+
 plugins {
     kotlin("jvm") version "1.3.50"
     `maven-publish`
@@ -27,6 +29,8 @@ subprojects {
 
     dependencies {
         implementation(kotlin("stdlib"))
+        testImplementation("org.junit.jupiter:junit-jupiter-api:5.5.2")
+        testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.5.2")
     }
 
     tasks {
@@ -37,6 +41,18 @@ subprojects {
             testLogging {
                 exceptionFormat = TestExceptionFormat.FULL
                 events("passed", "skipped", "failed")
+            }
+            useJUnitPlatform {
+                excludeTags("integration")
+            }
+        }
+        task<Test>("integrationTest") {
+            testLogging {
+                exceptionFormat = TestExceptionFormat.FULL
+                events("passed", "skipped", "failed")
+            }
+            useJUnitPlatform {
+                excludeTags("unit")
             }
         }
     }
@@ -75,9 +91,11 @@ spotless {
     }
     kotlin {
         target("**/*.kt")
-        ktlint().userData(mapOf(
-            "disabled_rules" to "import-ordering"
-        ))
+        ktlint().userData(
+            mapOf(
+                "disabled_rules" to "import-ordering"
+            )
+        )
     }
     kotlinGradle {
         target("**/*.gradle.kts")

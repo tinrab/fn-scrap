@@ -1,77 +1,99 @@
 package com.flinect.scrap.message
 
-import org.junit.Test
-import kotlin.test.assertEquals
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
+@Tag("unit")
 class MessageSerializerTest {
     @MessageTypes(
         AddTodoAction::class
     )
-    private interface Action : Message
+    private open class Action : Message()
 
-    @MessageTypeName("ADD_TODO")
+    @MessageTypeName("test.add-todo")
     private data class AddTodoAction(
         val text: String,
-        @MessageFieldSkip
+        @MessageFieldIgnore
         val skipped: Boolean,
         @MessageFieldName("x")
         val y: Int
-    ) : Action
+    ) : Action()
 
-    private val actionJson = MessageSerializer.of(Action::class)
+    private val actionSerializer = MessageSerializer.of(Action::class)
 
     @Test
     fun simple() {
         val todoAction = AddTodoAction("go to sleep", true, 42)
+        assertEquals("test.add-todo", todoAction.type)
 
-        val json = actionJson.encode(todoAction)
+        val json = actionSerializer.encode(todoAction)
         assertEquals(
-            "{\"type\":\"ADD_TODO\",\"payload\":{\"text\":\"go to sleep\",\"x\":42}}",
+            "{\"type\":\"test.add-todo\",\"payload\":{\"text\":\"go to sleep\",\"x\":42}}",
             json
         )
 
-        val parsed = actionJson.decode(json) as AddTodoAction
+        val parsed = actionSerializer.decode(json) as AddTodoAction
         assertEquals(todoAction.text, parsed.text)
         assertEquals(todoAction.y, parsed.y)
     }
 
     @Test
+    fun empty() {
+        val empty = EmptyMessage()
+        val json = actionSerializer.encode(empty)
+        assertEquals("{\"type\":\"builtin.empty\",\"payload\":{}}", json)
+        val decoded = actionSerializer.decode<Message>(json)
+        assert(decoded is EmptyMessage)
+    }
+
+    @Test
     fun extraField() {
         val parsed =
-            actionJson.decode("{\"type\":\"ADD_TODO\",\"payload\":{\"text\":\"go to sleep\",\"x\":42,\"y\":13}}") as AddTodoAction
+            actionSerializer.decode("{\"type\":\"test.add-todo\",\"payload\":{\"text\":\"go to sleep\",\"x\":42,\"y\":13}}") as AddTodoAction
         assertEquals("go to sleep", parsed.text)
         assertEquals(42, parsed.y)
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun nonObject() {
-        actionJson.decode("42")
+        assertThrows<IllegalArgumentException> {
+            actionSerializer.decode<Action>("42")
+        }
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun typeNotRegistered() {
         data class A(
             val x: Int
-        ) : Action
-        actionJson.encode(A(42))
+        ) : Action()
+        assertThrows<IllegalArgumentException> {
+            actionSerializer.encode(A(42))
+        }
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun noMessageTypeAnnotation() {
         data class A(
             val x: Int
-        ) : Action
-        actionJson.registerMessageType(A::class)
-        println(actionJson.encode(A(42)))
+        ) : Action()
+        assertThrows<IllegalArgumentException> {
+            actionSerializer.registerMessageType(A::class)
+        }
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun unknownType() {
-        actionJson.decode("{\"type\":\"A\"}")
+        assertThrows<IllegalArgumentException> {
+            actionSerializer.decode<Action>("{\"type\":\"A\"}")
+        }
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun missingPayload() {
-        actionJson.decode("{\"type\":\"ADD_TODO\"}")
+        assertThrows<IllegalArgumentException> {
+            actionSerializer.decode<Action>("{\"type\":\"test.add-todo\"}")
+        }
     }
 }
