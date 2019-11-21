@@ -20,13 +20,12 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 11.x
-      - name: Build
-        run: ./gradlew \
-          -Pversion="$(basename $GITHUB_REF)" \
-          -Prabbitmq.host=rabbitmq \
-          -Prabbitmq.port=${{ job.services.rabbitmq.ports[5672] }} \
-          build
       - name: Lint
         run: ./gradlew spotlessCheck
+      - name: Build
+        run: ./gradlew -Pversion="$(basename $GITHUB_REF)" build
+        env:
+          RABBITMQ_HOST: localhost
+          RABBITMQ_PORT: ${{ job.services.rabbitmq.ports[5672] }}
       - name: Publish
         run: ./gradlew -Pversion="$(basename $GITHUB_REF)" publish
