@@ -1,10 +1,12 @@
 package com.flinect.scrap.common
 
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.fail
 import java.nio.ByteBuffer
-import kotlin.test.assertEquals
-import kotlin.test.fail
 
+@Tag("unit")
 class EncodingTest {
     @Test
     fun encodeBase62ToString() {
@@ -32,7 +34,7 @@ class EncodingTest {
         for (f in cases) {
             try {
                 f()
-                fail("no IllegalStateException thrown")
+                fail("No IllegalStateException thrown.")
             } catch (e: IllegalStateException) {
             }
         }

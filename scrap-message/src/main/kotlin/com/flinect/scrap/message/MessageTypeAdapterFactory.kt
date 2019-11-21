@@ -11,17 +11,15 @@ import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonWriter
 import java.io.IOException
 import java.util.LinkedHashMap
+import kotlin.collections.set
 import kotlin.reflect.KClass
 import kotlin.reflect.full.declaredMemberProperties
 
-internal class MessageTypeAdapterFactory<T : Any> constructor(
-    private val baseType: KClass<*>,
-    private val typeFieldName: String
-) : TypeAdapterFactory {
+internal class MessageTypeAdapterFactory : TypeAdapterFactory {
     private val labelToType = LinkedHashMap<String, KClass<*>>()
     private val typeToLabel = LinkedHashMap<KClass<*>, String>()
 
-    fun registerMessageType(clazz: KClass<*>): MessageTypeAdapterFactory<T> {
+    fun registerMessageType(clazz: KClass<*>): MessageTypeAdapterFactory {
         val typeName = clazz.annotations.filterIsInstance<MessageTypeName>()
             .lastOrNull()
         requireNotNull(typeName) {
@@ -52,12 +50,12 @@ internal class MessageTypeAdapterFactory<T : Any> constructor(
         return this
     }
 
-    fun <S : T> isRegistered(value: S): Boolean {
+    fun <T : Message> isRegistered(value: T): Boolean {
         return typeToLabel.containsKey(value::class)
     }
 
     override fun <R : Any> create(gson: Gson, type: TypeToken<R>): TypeAdapter<R>? {
-        if (type.rawType != baseType.java) {
+        if (type.rawType != Message::class.java) {
             return null
         }
 
@@ -92,20 +90,15 @@ internal class MessageTypeAdapterFactory<T : Any> constructor(
                 val fieldDescriptions = getFieldDescriptions(messageType)
                 val flatObject = JsonObject()
 
-                for (group in GROUPS) {
-                    require(jsonObject.get(group).isJsonObject) {
-                        "Nested '$group' field must be an object."
-                    }
-
-                    val groupObject = jsonObject.get(group).asJsonObject
-
-                    for (field in groupObject.entrySet()) {
-                        val fieldName = fieldDescriptions.find {
-                            it.group == group && it.targetFieldName == field.key
-                        }?.sourceFieldName
-                        if (fieldName != null) {
-                            flatObject.add(fieldName, field.value)
-                        }
+                require(jsonObject.get(PAYLOAD_GROUP).isJsonObject) {
+                    "'$PAYLOAD_GROUP' is not an object."
+                }
+                for (field in jsonObject.get(PAYLOAD_GROUP).asJsonObject.entrySet()) {
+                    val fieldName = fieldDescriptions.find {
+                        it.targetFieldName == field.key
+                    }?.sourceFieldName
+                    if (fieldName != null) {
+                        flatObject.add(fieldName, field.value)
                     }
                 }
 
@@ -122,35 +115,26 @@ internal class MessageTypeAdapterFactory<T : Any> constructor(
                 val jsonObject = delegate.toJsonTree(value).asJsonObject
 
                 // Validate json object
-                require(!jsonObject.has(typeFieldName)) {
-                    "Cannot serialize '$baseType' because it already defines a field name '$typeFieldName'."
+                require(!jsonObject.has(TYPE_FIELD_NAME)) {
+                    "Cannot serialize message because it already defines a field name '$TYPE_FIELD_NAME'."
                 }
-                GROUPS.forEach {
-                    require(!jsonObject.has(it)) {
-                        "Cannot serialize '$baseType' because it already defines a field name '$it'."
-                    }
+                require(!jsonObject.has(PAYLOAD_GROUP)) {
+                    "Cannot serialize message because it already defines a field name '$PAYLOAD_GROUP'."
                 }
 
                 // Construct a result
                 val result = JsonObject()
-                result.add(typeFieldName, JsonPrimitive(typeToLabel[valueClass]))
+                result.add(TYPE_FIELD_NAME, JsonPrimitive(typeToLabel[valueClass]))
 
-                val groups = HashMap<String, JsonObject>()
+                val payload = JsonObject()
                 val fieldDescriptions = getFieldDescriptions(valueClass)
                 for (fd in fieldDescriptions) {
                     if (!jsonObject.has(fd.sourceFieldName)) {
                         continue
                     }
-                    if (!groups.containsKey(fd.group)) {
-                        groups[fd.group] = JsonObject()
-                    }
-                    groups[fd.group]?.add(fd.targetFieldName, jsonObject.get(fd.sourceFieldName))
+                    payload.add(fd.targetFieldName, jsonObject.get(fd.sourceFieldName))
                 }
-                for (group in groups) {
-                    if (group.value.size() != 0) {
-                        result.add(group.key, group.value)
-                    }
-                }
+                result.add(PAYLOAD_GROUP, payload)
 
                 Streams.write(result, out)
             }
@@ -158,17 +142,16 @@ internal class MessageTypeAdapterFactory<T : Any> constructor(
     }
 
     private fun getLabel(jsonObject: JsonObject): String {
-        val labelJsonElement = jsonObject.get(typeFieldName)
+        val labelJsonElement = jsonObject.get(TYPE_FIELD_NAME)
         requireNotNull(labelJsonElement) {
-            "Cannot deserialize '$baseType' because it does not define a field name '$typeFieldName'."
+            "Cannot deserialize message because it does not define a field name '$TYPE_FIELD_NAME'."
         }
         return labelJsonElement.asString
     }
 
     private data class FieldDescription(
         val sourceFieldName: String,
-        val targetFieldName: String,
-        val group: String
+        val targetFieldName: String
     )
 
     private fun <R : Any> getFieldDescriptions(clazz: KClass<R>): List<FieldDescription> {
@@ -176,7 +159,7 @@ internal class MessageTypeAdapterFactory<T : Any> constructor(
 
         for (property in clazz.declaredMemberProperties) {
             // Remove skipped fields
-            if (property.annotations.find { it is MessageFieldSkip } != null) {
+            if (property.annotations.find { it is MessageFieldIgnore } != null) {
                 continue
             }
             // Extract field name
@@ -184,21 +167,15 @@ internal class MessageTypeAdapterFactory<T : Any> constructor(
                 .filterIsInstance<MessageFieldName>()
                 .map { it.value }
                 .lastOrNull() ?: property.name
-            // Define a group for this field
-            val group = property.annotations
-                .filterIsInstance<MessageMeta>()
-                .map { META_GROUP }
-                .firstOrNull() ?: PAYLOAD_GROUP
 
-            fieldDescriptions.add(FieldDescription(property.name, fieldName, group))
+            fieldDescriptions.add(FieldDescription(property.name, fieldName))
         }
 
         return fieldDescriptions
     }
 
     companion object {
+        private const val TYPE_FIELD_NAME = "type"
         private const val PAYLOAD_GROUP = "payload"
-        private const val META_GROUP = "meta"
-        private val GROUPS = arrayOf(PAYLOAD_GROUP, META_GROUP)
     }
 }

@@ -1,8 +1,10 @@
 package com.flinect.scrap.common
 
-import org.junit.Test
-import kotlin.test.assertEquals
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.Test
 
+@Tag("unit")
 class LongUtilTest {
     @Test
     fun values() {

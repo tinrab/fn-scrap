@@ -1,8 +1,8 @@
 package com.flinect.scrap.message
 
 /**
- * Mark a field to be serialized inside meta object.
+ * Can be used to ignore a field during serialization and deserialization.
  */
 @Retention(AnnotationRetention.RUNTIME)
 @Target(AnnotationTarget.PROPERTY, AnnotationTarget.FIELD)
-annotation class MessageMeta
+annotation class MessageFieldIgnore

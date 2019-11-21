@@ -11,6 +11,11 @@ open class ServiceException(
 ) : RuntimeException(message, cause) {
     constructor(code: String, cause: Throwable?) : this(code, message = null, cause = cause)
 
+    val httpStatus = when (kind) {
+        ServiceException.Kind.INTERNAL -> 500
+        ServiceException.Kind.BAD_REQUEST -> 400
+    }
+
     enum class Kind {
         INTERNAL,
         BAD_REQUEST
