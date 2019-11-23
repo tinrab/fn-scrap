@@ -1,9 +1,11 @@
 package com.flinect.scrap.common
 
 import com.google.gson.GsonBuilder
+import java.io.Reader
+import kotlin.reflect.KClass
 
 object JsonUtil {
-    val gson = GsonBuilder()
+    private val gson = GsonBuilder()
         .create()
     private val errorJson = FailureJson()
 
@@ -14,7 +16,11 @@ object JsonUtil {
         }
     }
 
-    inline fun <reified T : Any> decode(json: String): T {
-        return gson.fromJson(json, T::class.java)
+    fun <T : Any> decode(json: String, clazz: KClass<T>): T {
+        return gson.fromJson(json, clazz.java)
+    }
+
+    fun <T : Any> decode(reader: Reader, clazz: KClass<T>): T {
+        return gson.fromJson(reader, clazz.java)
     }
 }
